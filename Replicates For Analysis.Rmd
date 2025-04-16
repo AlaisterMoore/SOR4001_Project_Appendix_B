@@ -1,0 +1,1696 @@
+*Use X1 and Y1 from 0d, 3d, 7d, 21d, 56d*
+Load filtered data into one table
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+# Load the control dataset
+PointControl <- read_excel("control_0d_Points.xlsx")
+Point_df_Control <- as.data.frame(PointControl)
+`ONH_control` <- c(PointControl$`ONH X1`, PointControl$`ONH X1`)
+
+# Define circle parameters
+circle_center <- c(x = PointControl$`ONH X1`[1] + 600, y = PointControl$`ONH Y1`[1] - 400)
+print(circle_center)
+circle_radius <- 600
+
+# Function to filter points within a circle
+filter_points_in_circle <- function(points_df, center, radius, x_col, y_col) {
+  points_df %>%
+    filter((!!sym(x_col) - center[1])^2 + (!!sym(y_col) - center[2])^2 <= radius^2)
+}
+
+# Initialise an empty list to store filtered points for each window
+filtered_points_list_0day <- list()
+
+for (i in 1:1) {
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_Control, circle_center, circle_radius, x_col, y_col)
+  
+  # Rename the columns to 0day_X1, 0day_Y1, and 0day_Area1
+  colnames(filtered_points) <- c("0day_Area1", "0day_X1", "0day_Y1" )
+  
+  # Store the filtered points in the list
+  filtered_points_list_0day[[i]] <- filtered_points
+}
+
+# Combine all filtered points into a single data frame (if needed)
+filtered_points_combined_0day <- do.call(rbind, filtered_points_list_0day)
+
+# Optionally, extract just the 0day_X1, 0day_Y1, and 0day_Area1 columns into their own table
+x1_y1_area1_table_0day <- filtered_points_combined_0day[, c("0day_X1", "0day_Y1", "0day_Area1")]
+x1_y1_area1_table_0day
+
+# Load the 3-day dataset
+Point3d <- read_excel("3d_pONT_Points.xlsx")
+Point_df_3d <- as.data.frame(Point3d)
+
+circle_center <- c(x = Point3d$`ONH X1`[1] + 600, y = Point3d$`ONH Y1`[1] - 400)
+
+
+# Initialise an empty list to store filtered points for each window
+filtered_points_list_3day <- list()
+
+for (i in 1:1) {
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_3d, circle_center, circle_radius, x_col, y_col)
+  
+  colnames(filtered_points) <- c("3day_Area1", "3day_X1", "3day_Y1")
+  
+  # Store the filtered points in the list
+  filtered_points_list_3day[[i]] <- filtered_points
+}
+
+# Combine all filtered points into a single data frame (if needed)
+filtered_points_combined_3day <- do.call(rbind, filtered_points_list_3day)
+
+# Optionally, extract just the 0day_X1, 0day_Y1, and 0day_Area1 columns into their own table
+x1_y1_area1_table_3day <- filtered_points_combined_3day[, c("3day_X1", "3day_Y1", "3day_Area1")]
+x1_y1_area1_table_3day
+
+# Load the control dataset
+Point7d <- read_excel("7d_pONT_Points.xlsx")
+Point_df_7d <- as.data.frame(Point7d)
+circle_center <- c(x = Point7d$`ONH X1`[1] + 600, y = Point7d$`ONH Y1`[1] - 400)
+
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list_7day <- list()
+
+for (i in 1:1) {
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_7d, circle_center, circle_radius, x_col, y_col)
+  
+  colnames(filtered_points) <- c("7day_Area1", "7day_X1", "7day_Y1")
+  
+  # Store the filtered points in the list
+  filtered_points_list_7day[[i]] <- filtered_points
+}
+
+# Combine all filtered points into a single data frame (if needed)
+filtered_points_combined_7day <- do.call(rbind, filtered_points_list_7day)
+
+# Optionally, extract just the 0day_X1, 0day_Y1, and 0day_Area1 columns into their own table
+x1_y1_area1_table_7day <- filtered_points_combined_7day[, c("7day_X1", "7day_Y1", "7day_Area1")]
+x1_y1_area1_table_7day
+
+#21 day
+Point21d <- read_excel("21d_pONT_Points.xlsx")
+Point_df_21d <- as.data.frame(Point21d)
+circle_center <- c(x = Point21d$`ONH X1`[1] + 600, y = Point21d$`ONH Y1`[1] - 400)
+
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list_21day <- list()
+
+for (i in 1:1) {
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_21d, circle_center, circle_radius, x_col, y_col)
+  
+  colnames(filtered_points) <- c("21day_Area1", "21day_X1", "21day_Y1")
+  
+  # Store the filtered points in the list
+  filtered_points_list_21day[[i]] <- filtered_points
+}
+
+# Combine all filtered points into a single data frame (if needed)
+filtered_points_combined_21day <- do.call(rbind, filtered_points_list_21day)
+
+# Optionally, extract just the 0day_X1, 0day_Y1, and 0day_Area1 columns into their own table
+x1_y1_area1_table_21day <- filtered_points_combined_21day[, c("21day_X1", "21day_Y1", "21day_Area1")]
+
+x1_y1_area1_table_21day
+
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+#56 day
+Point56d <- read_excel("56d_pONT_Points.xlsx")
+Point_df_56d <- as.data.frame(Point56d)
+circle_center <- c(x = Point56d$`ONH X1`[1] + 600, y = Point56d$`ONH Y1`[1] - 400)
+
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list_56day <- list()
+
+for (i in 1:1) {
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_56d, circle_center, circle_radius, x_col, y_col)
+  
+  colnames(filtered_points) <- c("56day_Area1", "56day_X1", "56day_Y1")
+  
+  # Store the filtered points in the list
+  filtered_points_list_56day[[i]] <- filtered_points
+}
+
+# Combine all filtered points into a single data frame (if needed)
+filtered_points_combined_56day <- do.call(rbind, filtered_points_list_56day)
+
+# Optionally, extract just the 0day_X1, 0day_Y1, and 0day_Area1 columns into their own table
+x1_y1_area1_table_56day <- filtered_points_combined_56day[, c("56day_X1", "56day_Y1", "56day_Area1")]
+
+x1_y1_area1_table_56day
+
+# List of all datasets
+datasets <- list(
+  x1_y1_area1_table_0day = x1_y1_area1_table_0day,
+  x1_y1_area1_table_3day = x1_y1_area1_table_3day,
+  x1_y1_area1_table_7day = x1_y1_area1_table_7day,
+  x1_y1_area1_table_21day = x1_y1_area1_table_21day,
+  x1_y1_area1_table_56day = x1_y1_area1_table_56day
+)
+
+# Find the maximum number of rows across all datasets
+max_rows <- max(sapply(datasets, nrow))
+
+# Pad each dataset to match the maximum number of rows
+padded_datasets <- lapply(datasets, function(df) {
+  rows_to_add <- max_rows - nrow(df)
+  if (rows_to_add > 0) {
+    # Create a padding data frame with NA values and the same column names
+    padding <- data.frame(matrix(NA, nrow = rows_to_add, ncol = ncol(df)))
+    colnames(padding) <- colnames(df)  # Ensure column names match
+    df <- rbind(df, padding)           # Add the padding
+  }
+  return(df)
+})
+
+# Combine all padded datasets column-wise
+combined <- do.call(cbind, padded_datasets)
+
+# Ensure column names are exactly as they were in the original datasets
+colnames(combined) <- unlist(lapply(datasets, colnames))
+
+# View the combined table
+combined
+```
+Load windows
+```{r}
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+Window_0d_1 <- read.table("control_x1.txt", sep = "\t")
+Window_3d_1 <- read.table("3d_pONT_x1.txt", sep = "\t")
+Window_7d_1 <- read.table("7d_pONT_x1.txt", sep = "\t")
+Window_21d_1 <- read.table("21d_pONT_x1.txt", sep = "\t")
+Window_56d_1 <- read.table("56d_pONT_x1.txt", sep = "\t")
+
+Window_0d_1 <- owin(poly = as.matrix(Window_0d_1))
+Window_3d_1 <- owin(poly = as.matrix(Window_3d_1))
+Window_7d_1 <- owin(poly = as.matrix(Window_7d_1))
+Window_21d_1 <- owin(poly = as.matrix(Window_21d_1))
+Window_56d_1 <- owin(poly = as.matrix(Window_56d_1))
+```
+Plot retinas
+```{r}
+library(spatstat)
+library(ggplot2)
+library(ggforce)
+
+# Extract coordinates and marks
+x <- Point_df_Control$X1
+y <- Point_df_Control$Y1
+window <- as.data.frame(Window_0d_1)  # Convert window to data frame (if needed)
+marks <- Point_df_Control$Area1  # Assuming these are areas of circles
+ONH_X <- Point_df_Control$`ONH X1`
+ONH_Y <- Point_df_Control$`ONH Y1`
+
+# Compute radius from area (r = sqrt(A/pi))
+radii <- sqrt(marks / pi)
+
+# Create a data frame for plotting
+points_df <- data.frame(x = x, y = y, radius = radii)
+onh_df <- data.frame(x = ONH_X, y = ONH_Y)  # Data frame for ONH point
+
+# Plot
+ggplot() +
+  # Plot the window as an outline
+  geom_polygon(data = window, aes(x = x, y = y), color = "black", fill = NA, linewidth = 1) +
+  
+  # Plot circular points with computed radius
+  geom_circle(data = points_df, aes(x0 = x, y0 = y, r = radius), color = "red", fill = NA) +
+  
+  # Plot the ONH coordinate as a blue point
+  geom_point(data = onh_df, aes(x = x, y = y), color = "blue", size = 3) +
+  
+  # Aesthetics
+  coord_fixed() +
+  theme_minimal() 
+
+
+# Extract coordinates and marks
+x <- Point_df_3d$X1
+y <- Point_df_3d$Y1
+window <- as.data.frame(Window_3d_1)  # Convert window to data frame (if needed)
+marks <- Point_df_3d$Area1  # Assuming these are areas of circles
+ONH_X <- Point_df_3d$`ONH X1`
+ONH_Y <- Point_df_3d$`ONH Y1`
+
+# Compute radius from area (r = sqrt(A/pi))
+radii <- sqrt(marks / pi)
+
+# Create a data frame for plotting
+points_df <- data.frame(x = x, y = y, radius = radii)
+onh_df <- data.frame(x = ONH_X, y = ONH_Y)  # Data frame for ONH point
+
+# Plot
+ggplot() +
+  # Plot the window as an outline
+  geom_polygon(data = window, aes(x = x, y = y), color = "black", fill = NA, linewidth = 1) +
+  
+  # Plot circular points with computed radius
+  geom_circle(data = points_df, aes(x0 = x, y0 = y, r = radius), color = "red", fill = NA) +
+  
+  # Plot the ONH coordinate as a blue point
+  geom_point(data = onh_df, aes(x = x, y = y), color = "blue", size = 3) +
+  
+  # Aesthetics
+  coord_fixed() +
+  theme_minimal() 
+
+# Extract coordinates and marks
+x <- Point_df_7d$X1
+y <- Point_df_7d$Y1
+window <- as.data.frame(Window_7d_1)  # Convert window to data frame (if needed)
+marks <- Point_df_7d$Area1  # Assuming these are areas of circles
+ONH_X <- Point_df_7d$`ONH X1`
+ONH_Y <- Point_df_7d$`ONH Y1`
+
+# Compute radius from area (r = sqrt(A/pi))
+radii <- sqrt(marks / pi)
+
+# Create a data frame for plotting
+points_df <- data.frame(x = x, y = y, radius = radii)
+onh_df <- data.frame(x = ONH_X, y = ONH_Y)  # Data frame for ONH point
+
+# Plot
+ggplot() +
+  # Plot the window as an outline
+  geom_polygon(data = window, aes(x = x, y = y), color = "black", fill = NA, linewidth = 1) +
+  
+  # Plot circular points with computed radius
+  geom_circle(data = points_df, aes(x0 = x, y0 = y, r = radius), color = "red", fill = NA) +
+  
+  # Plot the ONH coordinate as a blue point
+  geom_point(data = onh_df, aes(x = x, y = y), color = "blue", size = 3) +
+  
+  # Aesthetics
+  coord_fixed() +
+  theme_minimal() 
+
+# Extract coordinates and marks
+x <- Point_df_21d$X1
+y <- Point_df_21d$Y1
+window <- as.data.frame(Window_21d_1)  # Convert window to data frame (if needed)
+marks <- Point_df_21d$Area1  # Assuming these are areas of circles
+ONH_X <- Point_df_21d$`ONH X1`
+ONH_Y <- Point_df_21d$`ONH Y1`
+
+# Compute radius from area (r = sqrt(A/pi))
+radii <- sqrt(marks / pi)
+
+# Create a data frame for plotting
+points_df <- data.frame(x = x, y = y, radius = radii)
+onh_df <- data.frame(x = ONH_X, y = ONH_Y)  # Data frame for ONH point
+
+# Plot
+ggplot() +
+  # Plot the window as an outline
+  geom_polygon(data = window, aes(x = x, y = y), color = "black", fill = NA, linewidth = 1) +
+  
+  # Plot circular points with computed radius
+  geom_circle(data = points_df, aes(x0 = x, y0 = y, r = radius), color = "red", fill = NA) +
+  
+  # Plot the ONH coordinate as a blue point
+  geom_point(data = onh_df, aes(x = x, y = y), color = "blue", size = 3) +
+  
+  # Aesthetics
+  coord_fixed() +
+  theme_minimal() 
+
+# Extract coordinates and marks
+x <- Point_df_56d$X1
+y <- Point_df_56d$Y1
+window <- as.data.frame(Window_56d_1)  # Convert window to data frame (if needed)
+marks <- Point_df_56d$Area1  # Assuming these are areas of circles
+ONH_X <- Point_df_56d$`ONH X1`
+ONH_Y <- Point_df_56d$`ONH Y1`
+
+# Compute radius from area (r = sqrt(A/pi))
+radii <- sqrt(marks / pi)
+
+# Create a data frame for plotting
+points_df <- data.frame(x = x, y = y, radius = radii)
+onh_df <- data.frame(x = ONH_X, y = ONH_Y)  # Data frame for ONH point
+
+# Plot
+ggplot() +
+  # Plot the window as an outline
+  geom_polygon(data = window, aes(x = x, y = y), color = "black", fill = NA, linewidth = 1) +
+  
+  # Plot circular points with computed radius
+  geom_circle(data = points_df, aes(x0 = x, y0 = y, r = radius), color = "red", fill = NA) +
+  
+  # Plot the ONH coordinate as a blue point
+  geom_point(data = onh_df, aes(x = x, y = y), color = "blue", size = 3) +
+  
+  # Aesthetics
+  coord_fixed() +
+  theme_minimal() 
+```
+
+
+```{r}
+# Load necessary libraries
+library(spatstat)
+
+
+# Save plots as a PNG image
+png("retina_sample_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# Set up a grid of 2 rows and 3 columns for 6 plots
+par(mfrow = c(2, 3), mar = c(1, 1, 1, 1))  # Adjust margins if needed
+
+# Plot window and location of sample
+circle_center <- c(x = PointControl$`ONH X1`[1] + 600, y = PointControl$`ONH Y1`[1] - 400)
+plot(Window_0d_1, main = "Sample from control")
+symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+ONH <- c(x = PointControl$`ONH X1`[1], y = PointControl$`ONH Y1`[1])
+points(ONH[1], ONH[2], col = "red", pch = 19, cex = 1.4)
+
+
+circle_center <- c(x = Point3d$`ONH X1`[1] + 600, y = Point3d$`ONH Y1`[1] - 400)
+plot(Window_3d_1, main = "Sample at day 3")
+symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+ONH <- c(x = Point3d$`ONH X1`[1], y = Point3d$`ONH Y1`[1])
+points(ONH[1], ONH[2], col = "red", pch = 19, cex = 1.4)
+
+circle_center <- c(x = Point7d$`ONH X1`[1] + 600, y = Point7d$`ONH Y1`[1] - 400)
+plot(Window_7d_1, main = "Sample at day 7")
+symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+ONH <- c(x = Point7d$`ONH X1`[1], y = Point7d$`ONH Y1`[1])
+points(ONH[1], ONH[2], col = "red", pch = 19, cex = 1.4)
+
+circle_center <- c(x = Point21d$`ONH X1`[1] + 600, y = Point21d$`ONH Y1`[1] - 400)
+plot(Window_21d_1, main = "Sample at day 21")
+symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+ONH <- c(x = Point21d$`ONH X1`[1], y = Point21d$`ONH Y1`[1])
+points(ONH[1], ONH[2], col = "red", pch = 19, cex = 1.4)
+
+circle_center <- c(x = Point56d$`ONH X1`[1] + 600, y = Point56d$`ONH Y1`[1] - 400)
+plot(Window_56d_1, main = "Sample at day 56")
+symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+ONH <- c(x = Point56d$`ONH X1`[1], y = Point56d$`ONH Y1`[1])
+points(ONH[1], ONH[2], col = "red", pch = 19, cex = 1.4)
+
+# Close the PNG device
+dev.off()  
+```
+Plots
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggforce)  # For geom_circle()
+
+
+# Define a function to create the plot
+create_plot <- function(prefix, circle_center) {
+  # Extract relevant columns based on the prefix
+  x_col <- paste0(prefix, "X1")
+  y_col <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Calculate radius
+  radius <- sqrt(combined[[area_col]] / pi)
+  
+  # Create data frame for points
+  df_points <- data.frame(
+    x = combined[[x_col]],
+    y = combined[[y_col]],
+    radius = radius
+  )
+  
+  # Create the plot
+  plot <- ggplot(df_points, aes(x = x, y = y)) +
+    geom_point(aes(size = radius), shape = 21, color = "red", fill = "transparent") +
+    coord_fixed(ratio = 1) +
+    xlim(circle_center[1] - circle_radius, circle_center[1] + circle_radius) +
+    ylim(circle_center[2] - circle_radius, circle_center[2] + circle_radius) +
+    geom_circle(aes(x0 = circle_center[1], y0 = circle_center[2], r = circle_radius), color = "blue") +
+    theme_minimal() +
+    theme(
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank()
+    )
+  return(plot)
+}
+
+# Define the prefixes and corresponding datasets for circle centers
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Generate circle centers dynamically
+circle_centers <- lapply(datasets, function(df) {
+  c(x = df$`ONH X1`[1] + 600, y = df$`ONH Y1`[1] - 400)
+})
+
+# Create and display plots
+plots <- mapply(create_plot, prefixes, circle_centers, SIMPLIFY = FALSE)
+names(plots) <- prefixes
+
+# Save each plot individually as a PNG file
+for (p in prefixes) {
+  ggsave(paste0("plot_", p, ".png"), plots[[p]], width = 8, height = 6, units = "in", dpi = 300, bg = "white")
+}
+```
+Intensity Plots
+```{r}
+library(spatstat)
+library(viridis)
+
+# Define prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+create_plot <- function(prefix, dataset) {
+  # Update circle center dynamically
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X and Y coordinates and area column names
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Generate a colour palette
+  color_palette <- viridis(100)
+  
+  # Save plot as PNG
+  png(filename = paste0("plot_", prefix, "density.png"), width = 8, height = 6, units = "in", res = 300)
+  
+  plot(
+    density(Point_ppp, weights = marks(Point_ppp)), 
+    main = paste("Sample at", gsub("_", " ", prefix)),
+    col = color_palette
+  )
+  
+  dev.off()  # Close the PNG device
+}
+
+# Iterate over prefixes and corresponding datasets
+for (i in seq_along(prefixes)) {
+  create_plot(prefixes[i], datasets[[i]])
+}
+```
+Distance from center of circle covariate
+```{r}
+library(spatstat)
+
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Layout for three plots side-by-side
+
+circle_center <- c(x = PointControl$`ONH X1`[1] + 600, y = PointControl$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`0day_X1`,
+  y = combined$`0day_Y1`,
+  window = circular_window,
+  marks = combined$`0day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = distance, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = distance, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = distance, smoother = "piecewise")
+  
+png("0d_distance_all_plots.png", width = 800, height = 800)  # Set up a single PNG file
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = "Kernel smoother for 0 days", 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+      main = "Local smoother for 0 days", 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+      main = "Piecewise smoother for 0 days", 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+
+# (Optional) Add an empty plot if you have only 3 plots
+plot.new()  # This creates an empty plot to balance the layout if needed
+
+dev.off()  # Save the file
+
+
+circle_center <- c(x = Point3d$`ONH X1`[1] + 600, y = Point3d$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`3day_X1`,
+  y = combined$`3day_Y1`,
+  window = circular_window,
+  marks = combined$`3day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = distance, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = distance, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = distance, smoother = "piecewise")
+  
+png("3d_distance_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 3 days"), 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+  
+plot(rho_result_local, 
+       main = paste("Local smoother for 3 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 3 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+
+circle_center <- c(x = Point7d$`ONH X1`[1] + 600, y = Point7d$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`7day_X1`,
+  y = combined$`7day_Y1`,
+  window = circular_window,
+  marks = combined$`7day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = distance, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = distance, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = distance, smoother = "piecewise")
+  
+png("7d_distance_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2,2))
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 7 days"), 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+       main = paste("Local smoother for 7 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 7 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+
+circle_center <- c(x = Point21d$`ONH X1`[1] + 600, y = Point21d$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`21day_X1`,
+  y = combined$`21day_Y1`,
+  window = circular_window,
+  marks = combined$`21day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = distance, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = distance, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = distance, smoother = "piecewise")
+  
+png("21d_distance_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2,2))
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 21 days"), 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+  
+plot(rho_result_local, 
+       main = paste("Local smoother for 21 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 21 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+
+circle_center <- c(x = Point56d$`ONH X1`[1] + 600, y = Point56d$`ONH Y1`[1] - 400)
+  # Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`56day_X1`,
+  y = combined$`56day_Y1`,
+  window = circular_window,
+  marks = combined$`56day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = distance, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = distance, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = distance, smoother = "piecewise")
+  
+png("56d_distance_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2,2))
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 56 days"), 
+      xlab = "Distance from Centre (Pixels)", 
+      ylab = "Intensity (points/Pixels²)")
+  
+plot(rho_result_local, 
+       main = paste("Local smoother for 56 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 56 days"), 
+       xlab = "Distance from Centre (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+```
+
+```{r}
+# Corrected angle function with proper wrapping at -pi and +pi
+angle <- function(x, y) {angle <- atan2(y - circle_center[2], x -circle_center[1])}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+circle_center <- c(x = PointControl$`ONH X1`[1] + 600, y = PointControl$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`0day_X1`,
+  y = combined$`0day_Y1`,
+  window = circular_window,
+  marks = combined$`0day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = angle, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = angle, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = angle, smoother = "piecewise")
+  
+png("0d_angle_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 0 days"), 
+      xlab = "Angle (Radians)",  
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+      main = paste("Local smoother for 0 days"), 
+      xlab = "Angle (Radians)",  
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 0 days"), 
+       xlab = "Angle (Radians)",  
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+
+circle_center <- c(x = Point3d$`ONH X1`[1] + 600, y = Point3d$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`3day_X1`,
+  y = combined$`3day_Y1`,
+  window = circular_window,
+  marks = combined$`3day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = angle, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = angle, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = angle, smoother = "piecewise")
+  
+png("3d_angle_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 3 days"), 
+      xlab = "Angle (Radians)", 
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+       main = paste("Local smoother for 3 days"), 
+       xlab = "Angle (Radians)",  
+       ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 3 days"), 
+       xlab = "Angle (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+  
+
+circle_center <- c(x = Point7d$`ONH X1`[1] + 600, y = Point7d$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`7day_X1`,
+  y = combined$`7day_Y1`,
+  window = circular_window,
+  marks = combined$`7day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = angle, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = angle, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = angle, smoother = "piecewise")
+  
+png("7d_angle_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 7 days"), 
+      xlab = "Angle (Radians)",  
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+       main = paste("Local smoother for 7 days"), 
+       xlab = "Angle (Radians)",  
+       ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 7 days"), 
+       xlab = "Angle (Radians)",  
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+
+circle_center <- c(x = Point21d$`ONH X1`[1] + 600, y = Point21d$`ONH Y1`[1] - 400)
+# Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`21day_X1`,
+  y = combined$`21day_Y1`,
+  window = circular_window,
+  marks = combined$`21day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = angle, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = angle, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = angle, smoother = "piecewise")
+  
+png("21d_angle_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 21 days"), 
+      xlab = "Angle (Radians)",  
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+       main = paste("Local smoother for 21 days"), 
+       xlab = "Angle (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 21 days"), 
+       xlab = "Angle (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+  
+  
+circle_center <- c(x = Point56d$`ONH X1`[1] + 600, y = Point56d$`ONH Y1`[1] - 400)
+  # Create the ppp object
+Point_ppp <- ppp(
+  x = combined$`56day_X1`,
+  y = combined$`56day_Y1`,
+  window = circular_window,
+  marks = combined$`56day_Area1`
+)
+  
+# Estimate inhomogeneous intensity using different smoothers
+rho_result_kernel <- rhohat(Point_ppp, covariate = angle, smoother = "kernel")
+rho_result_local <- rhohat(Point_ppp, covariate = angle, smoother = "local")
+rho_result_piecewise <- rhohat(Point_ppp, covariate = angle, smoother = "piecewise")
+  
+png("56d_angle_all_plots.png", width = 800, height = 800)
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+# Generate plots for each smoother
+plot(rho_result_kernel, 
+      main = paste("Kernel smoother for 56 days"), 
+       xlab = "Angle (Radians)", 
+      ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_local, 
+       main = paste("Local smoother for 56 days"), 
+       xlab = "Angle (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+
+plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother for 56 days"), 
+       xlab = "Angle (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+plot.new()
+dev.off()
+
+```
+K-function
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+png("K-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the K-function plot for each prefix
+create_K_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate K-function and generate envelope
+  K_function <- envelope(Point_ppp, Kest, nsim = 10)
+  
+  # Plot K-function
+  plot(
+    K_function, 
+    main = paste("K-function", gsub("_", " ", prefix)), 
+    xlab = "r", 
+    ylab = "K(r)"
+  )
+}
+
+# Generate and display plots for each prefix with corresponding dataset
+mapply(create_K_plot, prefixes, datasets)
+
+# Close the PNG device
+dev.off()
+```
+G-function
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+png("G-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the G-function plot for each prefix
+create_G_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate G-function and generate envelope
+  G_function <- envelope(Point_ppp, Gest, nsim = 100)
+  
+  # Plot G-function
+  plot(
+    G_function, 
+    main = paste("G-function", gsub("_", " ", prefix)), 
+    xlab = "r", 
+    ylab = "G(r)"
+  )
+}
+
+# Generate and display plots for each prefix with corresponding dataset
+mapply(create_G_plot, prefixes, datasets)
+
+# Close the PNG device
+dev.off()
+```
+g-function
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+png("PCF-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the PCF plot for each prefix
+create_PCF_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate Pair Correlation Function (PCF)
+  PCF_function <- envelope(Point_ppp, 
+                           fun = pcf, 
+                           nsim = 10,            # Number of simulations
+                           r = seq(0, 200, by = 1),  # Coarser distance intervals
+                           rmax = 20)                # Limit maximum distance
+  
+  # Plot PCF
+  plot(
+    PCF_function, 
+    main = paste("Pair Correlation Function", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "g(r)"
+  )
+}
+
+# Generate and display plots for each prefix with corresponding dataset
+mapply(create_PCF_plot, prefixes, datasets)
+
+# Close the PNG device
+dev.off()
+```
+L-function (Lest)
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+png("L-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the L-function plot for each prefix
+create_L_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate L-function
+  L_function <- envelope(Point_ppp, 
+                         fun = Lest, 
+                         nsim = 10,  # Number of simulations
+                         correction = "Ripley")  # Apply Ripley’s edge correction
+  
+  # Plot L-function
+  plot(
+    L_function, 
+    main = paste("L-function", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "L(r)"
+  )
+}
+
+# Generate and display plots for each prefix with corresponding dataset
+mapply(create_L_plot, prefixes, datasets)
+
+# Close the PNG device
+dev.off()
+```
+L(r) - r 
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+png("L(r)-r_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the L(r) - r Envelope plot for each prefix
+create_Lr_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate L(r) - r envelope
+  Lr_function <- envelope(Point_ppp, 
+                          fun = Lest, 
+                          transform = expression(.-r), 
+                          nsim = 10)  # Number of simulations
+  
+  # Plot L(r) - r envelope
+  plot(
+    Lr_function, 
+    main = paste("L(r) - r", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "L(r) - r"
+  )
+}
+
+# Generate and display plots for each prefix with corresponding dataset
+mapply(create_Lr_plot, prefixes, datasets)
+
+# Close the PNG device
+dev.off()
+```
+Inhomogeneous K-function
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+#png("Kinhom-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+#par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the Kinhom envelope plot for each prefix
+create_Kinhom_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate Kinhom envelope
+  Kinhom_function <- envelope(Point_ppp, 
+                              fun = Kinhom, 
+                              nsim = 10)  # Number of simulations
+  
+  # Plot Kinhom envelope
+  plot(
+    Kinhom_function, 
+    main = paste("Kinhom", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "K(r)",xlim = c(0, 100), ylim = c(0, 10000)
+  )
+  
+    # Plot Kinhom envelope
+  plot(
+    Kinhom_function, 
+    main = paste("Kinhom", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "K(r)",xlim = c(100, 160 ), ylim = c(30000, 80000)
+  )
+}
+
+#png("Kinhom_Control_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+create_Kinhom_plot("0day_", PointControl)
+#dev.off()
+
+# Generate and display plots for each prefix with corresponding dataset
+#mapply(create_Kinhom_plot, prefixes, datasets)
+
+
+ 
+# Close the PNG device
+#dev.off()
+
+
+```
+```{r}
+png("L_rinhom-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Define the function to generate the Linhom envelope plot
+create_L_rinhom_plot <- function(prefix, dataset) {
+  library(spatstat)
+
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+
+  # Compute the envelope for Linhom
+  L_rinhom_env <- envelope(Point_ppp, 
+                         fun = Linhom, , 
+                          transform = expression(.-r), 
+                          nsim = 30)  # Number of simulations
+
+  # Plot Linhom envelope
+  plot(
+    L_rinhom_env, 
+    main = paste("Inhom L(r) - r", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "Inhom L(r) - r"
+  )
+}
+
+mapply(create_L_rinhom_plot, prefixes, datasets)
+
+dev.off()
+```
+
+
+
+Inhomogeneous G-function *Envelopes not plotting to theoretical line*
+*Check online to see if others have the same issue*
+```{r}
+library(spatstat)
+
+# Save plots as a PNG image
+png("Ginhom-function_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# List of prefixes and corresponding datasets
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(2, 3), mar = c(3, 2, 2, 2))  # 2 rows, 3 columns
+
+# Define the function to generate the Ginhom envelope plot for each prefix
+create_Ginhom_plot <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract the X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Calculate Ginhom envelope
+  Ginhom_function <- envelope(Point_ppp, 
+                              fun = Ginhom, 
+                              nsim = 10)  # Number of simulations
+  
+  # Plot Ginhom envelope
+  plot(
+    Ginhom_function, 
+    main = paste("Ginhom", gsub("_", " ", prefix)),
+    xlab = "r", 
+    ylab = "G(r)"
+  )
+}
+
+# Generate and display plots for each prefix with corresponding dataset
+mapply(create_Ginhom_plot, prefixes, datasets)
+
+# Close the PNG device
+dev.off()
+```
+Kolmogorov-Smirnov (KS) Test (test compares cumulative distribution functions, making it suitable for comparing distances of points from a feature of interest (e.g., a covariate) between groups.)
+KS for distance from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # 1 row, 3 columns with adjusted margins
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# List of prefixes for the dataset
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Function to compute KS test for each prefix
+create_ks_test <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Compute distances of points from the centre
+  distances <- distance(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    distances, 
+    "punif", 
+    min = 0, 
+    max = circle_radius
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", gsub("_", " ", prefix))]] <<- ks_result
+}
+
+# Perform and display the KS test for each prefix with corresponding dataset
+mapply(create_ks_test, prefixes, datasets)
+
+# Print KS test results
+ks_test_results
+```
+KS for angle from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# List of prefixes for the dataset
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+datasets <- list(PointControl, Point3d, Point7d, Point21d, Point56d)
+
+# Function to compute KS test for each prefix
+create_ks_test <- function(prefix, dataset) {
+  # Dynamically update the circle center
+  circle_center <- c(x = dataset$`ONH X1`[1] + 600, y = dataset$`ONH Y1`[1] - 400)
+  
+  # Update circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Extract X, Y, and Area column names based on the prefix
+  X_coords <- paste0(prefix, "X1")
+  Y_coords <- paste0(prefix, "Y1")
+  area_col <- paste0(prefix, "Area1")
+  
+  # Filter rows without NA values for the selected prefix
+  valid_rows <- !is.na(combined[[X_coords]]) & 
+                !is.na(combined[[Y_coords]]) & 
+                !is.na(combined[[area_col]])
+  
+  # Create the ppp object
+  Point_ppp <- ppp(
+    x = combined[[X_coords]][valid_rows],
+    y = combined[[Y_coords]][valid_rows],
+    window = circular_window,
+    marks = combined[[area_col]][valid_rows]
+  )
+  
+  # Compute distances of points from the centre
+  angles <- angle(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    angles, 
+    "punif", 
+    min = -pi, 
+    max = pi
+  )
+  
+help(ks.test)
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", gsub("_", " ", prefix))]] <<- ks_result
+}
+
+# Perform and display the KS test for each prefix with corresponding dataset
+mapply(create_ks_test, prefixes, datasets)
+
+# Print KS test results
+ks_test_results
+```
+KS for distance from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center`, `circle_radius`, and the `combined` dataset are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Set plot layout and margins
+
+# Function to define the distance-to-centre covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# List of prefixes for the dataset
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+
+# Placeholder to store distances for each window
+distances_list <- list()
+
+# Compute distances for each prefix
+for (prefix in prefixes) {
+  # Extract X, Y column names based on the prefix
+  X_coords <- combined[[paste0(prefix, "X1")]]
+  Y_coords <- combined[[paste0(prefix, "Y1")]]
+  
+  # Compute distances of points from the centre
+  distances <- distance(X_coords, Y_coords)
+  
+  # Save the distances for the current dataset
+  distances_list[[prefix]] <- distances
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(distances_list), ncol = length(distances_list),
+                          dimnames = list(names(distances_list), names(distances_list)))
+
+# Perform KS test for each pair of datasets
+for (i in seq_along(distances_list)) {
+  for (j in seq_along(distances_list)) {
+    if (i >= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare distances between window `i` and window `j`
+    ks_result <- ks.test(
+      distances_list[[i]], 
+      distances_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+
+```
+KS for angle from center between speci mens
+***fix this***
+```{r}
+library(spatstat)
+
+# Assuming `circle_center`, `circle_radius`, and the `combined` dataset are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Set plot layout and margins
+
+# Function to define the angle-to-centre covariate
+compute_angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+# Define the circular window
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# List of prefixes for the dataset
+prefixes <- c("0day_", "3day_", "7day_", "21day_", "56day_")
+
+# Placeholder to store angles for each window
+angle_list <- list()
+
+# Compute angles for each prefix
+for (prefix in prefixes) {
+  # Extract X, Y column names based on the prefix
+  X_coords <- combined[[paste0(prefix, "X1")]]
+  Y_coords <- combined[[paste0(prefix, "Y1")]]
+  
+  # Compute angles of points relative to the centre
+  angles <- compute_angle(X_coords, Y_coords)
+  
+  # Save the angles for the current dataset
+  angle_list[[prefix]] <- angles
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(NA, nrow = length(angle_list), ncol = length(angle_list),
+                          dimnames = list(names(angle_list), names(angle_list)))
+
+# Perform KS test for each pair of datasets
+for (i in seq_along(angle_list)) {
+  for (j in seq_along(angle_list)) {
+    if (i >= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare angles between window `i` and window `j`
+    ks_result <- ks.test(
+      angle_list[[i]], 
+      angle_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+
+
+Calculate the average intensity of the 21 day retinas
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+library(spatstat)
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+Point21d <- read_excel("21d_pONT_Points.xlsx")
+Point_df_21d <- as.data.frame(Point21d)
+
+
+intensities <- numeric(9)  # Vector to store intensity values
+
+for (i in 1:9) {
+  # Read the window data
+  window_data <- read.table(paste0("21d_pONT_x", i, ".txt"), sep = "\t")
+  window_obj <- owin(poly = as.matrix(window_data))
+
+  # Create the point pattern
+  PPP <- ppp(
+    x = Point21d[[paste0("X", i)]],
+    y = Point21d[[paste0("Y", i)]],
+    window = window_obj,
+    marks = Point21d[[paste0("Area", i)]]
+  )
+
+  # Store intensity value
+  intensities[i] <- intensity(PPP)
+}
+
+# Compute and print the average intensity
+average_intensity <- mean(intensities)
+print(average_intensity)
+```

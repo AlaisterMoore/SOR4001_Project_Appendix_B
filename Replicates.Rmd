@@ -1,0 +1,5971 @@
+*Control*
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+# Load the control dataset
+PointControl <- read_excel("control_0d_Points.xlsx")
+Point_df_Control <- as.data.frame(PointControl)
+
+# Initialize an empty list to store the window objects
+windowcontrol_list <- list()
+
+# Loop through each file, read the data, and create owin objects
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  
+  # Construct the file name
+  file_name <- paste0("control_x", i, ".txt")
+  
+  # Read the data and create an owin object
+  window_data <- read.table(file_name, sep = "\t")
+  windowcontrol_list[[i]] <- owin(poly = as.matrix(window_data))
+}
+
+circle_radius <- 600  # Fixed radius
+
+# Function to filter points within a circle
+filter_points_in_circle <- function(points_df, center, radius, x_col, y_col) {
+  points_df %>%
+    filter((!!sym(x_col) - center[1])^2 + (!!sym(y_col) - center[2])^2 <= radius^2)
+}
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list <- list()
+
+# Loop through all windows (excluding window 4)
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  
+  # Dynamically select the ONH coordinates for each window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(x = Point_df_Control[[onh_x_col]][1] + 600,y = Point_df_Control[[onh_y_col]][1] - 400)
+
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+
+  # Ensure the point columns exist
+  if (!(x_col %in% colnames(Point_df_Control)) || !(y_col %in% colnames(Point_df_Control))) {
+    next
+  }
+
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_Control, circle_center, circle_radius, x_col, y_col)
+  
+  # Store the filtered points in the list
+  filtered_points_list[[i]] <- filtered_points
+}
+```
+
+```{r}
+# Load necessary libraries
+library(spatstat)
+
+# Save plots as a PNG image
+png("Control_sample_plots.png", width = 1200, height = 800)  # Adjust width and height as needed
+
+# Set up a grid of 3 rows and 5 columns for 15 plots
+par(mfrow = c(3, 5), mar = c(1, 1, 1, 1))  # Adjust margins if needed
+
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  
+  # Dynamically determine the ONH coordinates for this window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Set the circle center dynamically for this window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,
+    y = Point_df_Control[[onh_y_col]][1] - 400
+  )
+
+  # Plot the window
+  plot(windowcontrol_list[[i]], main = paste(i))
+  
+  # Overlay the circle on the window
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, 
+          add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+}
+
+dev.off()
+```
+```{r}
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  if (is.null(filtered_points) || nrow(filtered_points) == 0) next
+
+  # Calculate the area for each point
+  area <- 5 * i - 4
+
+  # Calculate the radius based on the area (A = πr²)
+  radius <- sqrt(filtered_points[[area]] / pi)
+
+  # X and Y coordinates
+  X_index <- i * 5 - 3
+  Y_index <- i * 5 - 2
+
+  df_points <- data.frame(
+    x = filtered_points[[X_index]],
+    y = filtered_points[[Y_index]],
+    radius = radius
+  )
+
+  # Create plot
+  plot <- ggplot(df_points, aes(x = x, y = y)) +
+    geom_point(aes(size = radius), shape = 21, color = "red", fill = "transparent") +
+    coord_fixed(ratio = 1) +
+    xlim(circle_center[1] - circle_radius, circle_center[1] + circle_radius) +
+    ylim(circle_center[2] - circle_radius, circle_center[2] + circle_radius) +
+    geom_circle(aes(x0 = circle_center[1], y0 = circle_center[2], r = circle_radius), color = "blue") +
+    theme_minimal() +
+    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank()) +
+    labs(title = paste("Window", i))
+
+  # Save the plot
+  ggsave(filename = paste0("0d_Filtered_Points_Window_", i, ".png"), 
+         plot = plot, width = 6, height = 6, dpi = 300, bg = "white")
+
+  print(plot)  # Print for verification
+}
+```
+```{r}
+library(spatstat)
+library(viridis)
+
+# Define prefixes and corresponding datasets
+prefixes <- paste0("Window_", 1:16)
+datasets <- filtered_points_list  # Assuming this contains the datasets
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(4, 4), mar = c(3, 2, 2, 2))  # 4 rows, 4 columns
+
+create_plot <- function(i, dataset) {
+  # Ensure ONH coordinate columns exist
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    return()  # Skip if ONH columns don't exist
+  }
+  
+  # Filter the dataset to remove invalid points
+  valid_rows <- !is.na(dataset[[i * 5 - 3]]) & !is.na(dataset[[i * 5 - 2]]) & !is.na(dataset[[5 * i - 4]])
+  
+  # Get valid X, Y coordinates and area
+  X_coords <- dataset[[i * 5 - 3]][valid_rows]
+  Y_coords <- dataset[[i * 5 - 2]][valid_rows]
+  area <- dataset[[5 * i - 4]][valid_rows]
+
+  # Dynamically update circle center
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,
+    y = Point_df_Control[[onh_y_col]][1] - 400
+  )
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - circle_radius, circle_center[1] + circle_radius),
+    yrange = c(circle_center[2] - circle_radius, circle_center[2] + circle_radius),
+    poly = list(x = c(circle_center[1] + circle_radius * cos(seq(0, 2 * pi, length.out = 100))),
+                y = c(circle_center[2] + circle_radius * sin(seq(0, 2 * pi, length.out = 100))))
+  )
+  
+  # Create ppp object within the circular window
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Define colour palette
+  color_palette <- viridis(100)
+
+  # Save plot as PNG
+  png(filename = paste0("0d_Window_", i, "_density.png"), width = 8, height = 6, units = "in", res = 300)
+  
+  plot(
+    density(Point_ppp, weights = marks(Point_ppp)), 
+    main = paste("Window", i),
+    col = color_palette
+  )
+  
+  # Overlay the circle
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, 
+          add = TRUE, inches = FALSE, bg = "transparent")
+  
+  dev.off()  # Close the PNG device
+}
+
+# Iterate over the prefixes and datasets
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  create_plot(i, datasets[[i]])
+}
+```
+Distance from center of circle covariate
+```{r}
+library(spatstat)
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y, circle_center) {
+  sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window (if not defined outside the loop)
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using distance
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'local')
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'piecewise')
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("Control_covariate_distance_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Plots_", i)]] <- paste0("rhohat_plots_", i, ".png")
+}
+
+# Optionally save the results to files or examine
+# Example to examine a specific result:
+# plot(rhohat_results[["Kernel_1"]])
+```
+Angle from center of circle covariate
+```{r}
+library(spatstat)
+
+# Corrected angle function with proper wrapping at -pi and +pi
+angle <- function(x, y, circle_center) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using angle
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = 'local')
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = 'piecewise')
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("Control_Covariates_angle_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Angle_Plots_", i)]] <- paste0("rhohat_angle_plots_", i, ".png")
+}
+```
+K-function
+```{r}
+library(spatstat)
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # 1 row, 3 columns
+
+# Initialize a list to store results
+K_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+  
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate K-function and generate envelope
+  K_function <- envelope(Point_ppp, Kest, nsim = 10)
+  
+  # Save the plot to a PNG file
+  png(paste0("K_function_", i, ".png"))
+  
+  # Plot K-function
+  plot(K_function, 
+       main = paste("0d_K-function", i), 
+       xlab = "r", 
+       ylab = "K(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+  
+  # Store result for later if needed
+  K_results[[i]] <- K_function
+}
+```
+G-function (Gest)
+```{r}
+library(spatstat)
+
+# Initialize a list to store results
+G_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate G-function and generate envelope
+  G_function <- envelope(Point_ppp, Gest, nsim = 30)
+  
+  # Save the plot to a PNG file
+  png(paste0("0d_G_function_", i, ".png"))
+  
+  # Plot G-function
+  plot(G_function, 
+       main = paste("G-function", i), 
+       xlab = "r", 
+       ylab = "G(r)")
+
+  # Close the PNG device to save the file
+  dev.off()
+  
+  # Store result for later if needed
+  G_results[[i]] <- G_function
+}
+```
+Pair Correlation Function/g-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  PCF_function <- envelope(Point_ppp, 
+                           fun = pcf, 
+                           nsim = 10,           # Number of simulations
+                           r = seq(0, 200, by = 1),  # Coarser distance intervals
+                           rmax = 20)               # Limit maximum distance
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("0d_PCF_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(PCF_function, main = paste("0d_Pair Correlation Function", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+L-function (Lest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L-function envelope
+  L_function <- envelope(Point_ppp, Lest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("0d_L_function_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  # Plot and save to the PNG file
+  plot(L_function, 
+       main = paste("L-function", i), 
+       xlab = "r", 
+       ylab = "L(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+L(r) - r 
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L(r) - r Envelope
+  Lr_function <- envelope(Point_ppp, Lest, transform = expression(.-r), nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("0d_Lr_function_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Lr_function, 
+       main = paste("L(r) - r Envelope", i), 
+       xlab = "r", 
+       ylab = "L(r) - r")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  Kinhom_function <- envelope(Point_ppp, Kinhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("0d_Kinhom_function_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Kinhom_function, 
+       main = paste("Kinhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous L(r)-r-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  L_rinhom_function <- envelope(Point_ppp, Linhom, 
+                          transform = expression(.-r), 
+                          nsim = 10)  # Number of simulations)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("0d_L_rinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_rinhom_function, 
+       main = paste("Inhom L(r) - r Envelope", i))
+ 
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous G-function *Envelopes not plotting to theoretical line*
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Ginhom Envelope
+  Ginhom_function <- envelope(Point_ppp, Ginhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("0d_Ginhom_function_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+
+  # Plot and save to the PNG file
+  plot(Ginhom_function, 
+       main = paste("Ginhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Kolmogorov-Smirnov (KS) Test (test compares cumulative distribution functions, making it suitable for comparing distances of points from a feature of interest (e.g., a covariate) between groups.)
+KS for distance from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Compute distances of points from the centre
+  distances <- distance(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    distances, 
+    "punif", 
+    min = 0, 
+    max = circle_radius
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for angle from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Compute angles of points from the centre
+  angles <- angle(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by 2*pi)
+  ks_result <- ks.test(
+    angles, 
+    "punif", 
+    min = -pi, 
+    max = pi
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for distance from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store distances for each window
+distances_list <- list()
+
+# Loop through each set of filtered points to calculate distances
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  
+  # Compute distances of points from the centre
+  distances <- distance(X_coords, Y_coords)
+  
+  # Save distances for the current window
+  distances_list[[paste0("Window_", i)]] <- distances
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(distances_list), ncol = length(distances_list),
+                          dimnames = list(names(distances_list), names(distances_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(distances_list)) {
+  for (j in seq_along(distances_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare distances between window `i` and window `j`
+    ks_result <- ks.test(
+      distances_list[[i]], 
+      distances_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+KS for angle from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store angles for each window
+angles_list <- list()
+
+# Loop through each set of filtered points to calculate angles
+for (i in 1:16) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_Control[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_Control[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  
+  # Compute angles of points from the centre
+  angles <- angle(X_coords, Y_coords)
+  
+  # Save angles for the current window
+  angles_list[[paste0("Window_", i)]] <- angles
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(angles_list), ncol = length(angles_list),
+                          dimnames = list(names(angles_list), names(angles_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(angles_list)) {
+  for (j in seq_along(angles_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare angles between window `i` and window `j`
+    ks_result <- ks.test(
+      angles_list[[i]], 
+      angles_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+Hanisch Test is just the envelopes of the function graphs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*3d*
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+# Load the 3D dataset
+Point3d <- read_excel("3d_pONT_Points.xlsx")
+Point_df_3d <- as.data.frame(Point3d)
+
+# Initialize an empty list to store the window objects
+window3d_list <- list()
+
+# Loop through each file, read the data, and create owin objects
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+  
+  # Construct the file name
+  file_name <- paste0("3d_pONT_x", i, ".txt")
+  
+  # Read the data and create an owin object
+  window_data <- read.table(file_name, sep = "\t")
+  window3d_list[[i]] <- owin(poly = as.matrix(window_data))
+}
+
+# Define circle parameters
+circle_radius <- 600  # Radius for the circular filter
+
+# Function to filter points within a circle
+filter_points_in_circle <- function(points_df, center, radius, x_col, y_col) {
+  points_df %>%
+    filter((!!sym(x_col) - center[1])^2 + (!!sym(y_col) - center[2])^2 <= radius^2)
+}
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list <- list()
+
+# Loop through all windows (excluding window 3)
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+  
+  # Dynamically select the ONH coordinates for each window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_3d)) || !(onh_y_col %in% colnames(Point_df_3d))) {
+    next  # Skip if columns don't exist
+  }
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(x = Point_df_3d[[onh_x_col]][1] + 600, y = Point_df_3d[[onh_y_col]][1] - 400)
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Ensure the point columns exist
+  if (!(x_col %in% colnames(Point_df_3d)) || !(y_col %in% colnames(Point_df_3d))) {
+    next  # Skip if point columns don't exist
+  }
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_3d, circle_center, circle_radius, x_col, y_col)
+  
+  # Store the filtered points in the list
+  filtered_points_list[[i]] <- filtered_points
+}
+```
+```{r}
+# Save the plot as a PNG file
+png("my_plot.png", width = 1200, height = 1200, res = 150)
+
+# Load necessary libraries
+library(spatstat)
+
+# Set up a grid of 2 rows and 2 columns
+par(mfrow = c(2, 2), mar = c(1, 1, 1, 1))
+
+for (i in 1:5) {
+  if (i == 3) next  # Skip 3
+  
+  # Dynamically determine the ONH coordinates for this window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Set the circle center dynamically for this window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,
+    y = Point_df_3d[[onh_y_col]][1] - 400
+  )
+
+  # Plot the window
+  plot(window3d_list[[i]], main = paste(i))
+
+  # Overlay the circle on the window
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+}
+
+dev.off()  # Close the PNG device
+```
+```{r}
+library(ggplot2)
+library(ggforce)
+
+# Loop for i from 1 to 5
+for (i in 1:5) {
+  if (i == 3) next  # Skip 3
+
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Ensure the columns exist in the dataset
+  if (!(onh_x_col %in% colnames(Point_df_Control)) || !(onh_y_col %in% colnames(Point_df_Control))) {
+    next  # Skip if columns don't exist
+  }
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,
+    y = Point_df_3d[[onh_y_col]][1] - 400
+  )
+
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  if (is.null(filtered_points) || nrow(filtered_points) == 0) next
+
+  # Calculate the area for each point
+  area <- 5 * i - 4
+
+  # Calculate the radius based on the area (A = πr²)
+  radius <- sqrt(filtered_points[[area]] / pi)
+
+  # X and Y coordinates
+  X_index <- i * 5 - 3
+  Y_index <- i * 5 - 2
+
+  df_points <- data.frame(
+    x = filtered_points[[X_index]],
+    y = filtered_points[[Y_index]],
+    radius = radius
+  )
+
+  # Create plot
+  plot <- ggplot(df_points, aes(x = x, y = y)) +
+    geom_point(aes(size = radius), shape = 21, color = "red", fill = "transparent") +
+    coord_fixed(ratio = 1) +
+    xlim(circle_center[1] - circle_radius, circle_center[1] + circle_radius) +
+    ylim(circle_center[2] - circle_radius, circle_center[2] + circle_radius) +
+    geom_circle(aes(x0 = circle_center[1], y0 = circle_center[2], r = circle_radius), color = "blue") +
+    theme_minimal() +
+    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank()) +
+    labs(title = paste("3d_Window", i))
+
+  # Save the plot
+  filename <- paste0("3d_Window_", i, ".png")  # Change to ".pdf" for PDF format
+  ggsave(filename, plot, width = 6, height = 6, dpi = 300, bg = "white")
+}
+```
+```{r}
+library(spatstat)
+library(viridis)
+
+# Loop through all windows (excluding window 3)
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+  
+  # Dynamically select the ONH coordinates for the current window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Ensure the ONH coordinate columns exist
+  if (!(onh_x_col %in% colnames(Point_df_3d)) || !(onh_y_col %in% colnames(Point_df_3d))) {
+    next  # Skip if ONH columns don't exist
+  }
+  
+  # Dynamically set circle center based on the current window's ONH coordinates
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Adjust the X coordinate
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Adjust the Y coordinate
+  )
+  
+  # Create the circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X, Y, and area column indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X, Y coordinates and area from the filtered dataset
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object within the circular window
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Define colour palette
+  color_palette <- viridis(100)
+
+  # Set up PNG file to save the plot
+  filename <- paste0("3d_density", i, ".png")
+  png(filename, width = 800, height = 800, res = 150)  # Adjust resolution as needed
+
+  # Plot intensity using the density of the ppp object with marks as weights
+  plot(density(Point_ppp, weights = marks(Point_ppp)), 
+       main = paste("Window", i),
+       col = color_palette)
+  
+  dev.off()  # Close the PNG device
+}
+```
+Distance from center of circle covariate
+```{r}
+library(spatstat)
+
+# Function to calculate distance
+distance <- function(x, y, center) {
+  sqrt((x - center[1])^2 + (y - center[2])^2)
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:5) {
+  if (i == 3) next  # Skip 3
+  
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(x = Point_df_3d[[onh_x_col]][1] + 600, y = Point_df_3d[[onh_y_col]][1] - 400)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window (if not defined outside the loop)
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using distance
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'local')
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'piecewise')
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("3d_covariate_distance_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Distance_Plots_", i)]] <- paste0("rhohat_distance_plots_", i, ".png")
+}
+```
+Angle from center of circle covariate
+```{r}
+library(spatstat)
+
+# Corrected angle function with proper wrapping at -pi and +pi
+angle <- function(x, y, center) {
+  atan2(y - center[2], x - center[1])
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:5) {
+  if (i == 3) next  # Skip 3
+  
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using angle
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "local")
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "piecewise")
+
+  # Open PNG device to save the plot
+  png(filename = paste0("3d_covariate_angle_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Angle_Plots_", i)]] <- paste0("rhohat_angle_plots_", i, ".png")
+}
+
+```
+K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate K-function
+  K_function <- envelope(Point_ppp, Kest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_K_function_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+
+  # Plot and save to the PNG file
+  plot(K_function, 
+       main = paste("K-function", i), 
+       xlab = "r", 
+       ylab = "K(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+G-function (Gest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate G-function
+  G_function <- envelope(Point_ppp, Gest, nsim = 30)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_G_function_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(G_function, 
+       main = paste("G-function", i), 
+       xlab = "r", 
+       ylab = "G(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Pair Correlation Function/g-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Pair Correlation Function (PCF)
+  PCF_function <- envelope(Point_ppp, 
+                           fun = pcf, 
+                           nsim = 10,           # Number of simulations
+                           r = seq(0, 200, by = 1),  # Coarser distance intervals
+                           rmax = 20)               # Limit maximum distance
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_PCF_plot_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(PCF_function, 
+       main = paste("Pair Correlation Function", i), 
+       xlab = "r", 
+       ylab = "PCF(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+L-function (Lest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L-function
+  L_function <- envelope(Point_ppp, Lest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_L_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_function, 
+       main = paste("L-function", i), 
+       xlab = "r", 
+       ylab = "L(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+L(r) - r 
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L(r) - r Envelope
+  Lr_function <- envelope(Point_ppp, Lest, transform = expression(.-r), nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_Lr_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Lr_function, 
+       main = paste("L(r) - r Envelope", i), 
+       xlab = "r", 
+       ylab = "L(r) - r")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+Inhomogeneous K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  Kinhom_function <- envelope(Point_ppp, Kinhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_Kinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Kinhom_function, 
+       main = paste("Kinhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous L(r)-r-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  L_rinhom_function <- envelope(Point_ppp, Linhom, 
+                          transform = expression(.-r), 
+                          nsim = 10)  # Number of simulations)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("3d_L_rinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_rinhom_function, 
+       main = paste("Inhom L(r) - r Envelope", i))
+ 
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous G-function *Envelopes not plotting to theoretical line*
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+  if (i == 3) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Ginhom Envelope
+  Ginhom_function <- envelope(Point_ppp, Ginhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("Ginhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Ginhom_function, 
+       main = paste("Ginhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Kolmogorov-Smirnov (KS) Test (test compares cumulative distribution functions, making it suitable for comparing distances of points from a feature of interest (e.g., a covariate) between groups.)
+KS for distance from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:5) {
+  if (i==3) next #skip 3
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Compute distances of points from the centre
+  distances <- distance(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    distances, 
+    "punif", 
+    min = 0, 
+    max = circle_radius
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for angle from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:5) {
+  if (i==3) next #skip 3
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute angles of points from the centre
+  angles <- angle(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by 2*pi)
+  ks_result <- ks.test(
+    angles, 
+    "punif", 
+    min = -pi, 
+    max = pi
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for distance from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store distances for each window
+distances_list <- list()
+
+# Loop through each set of filtered points to calculate distances
+for (i in 1:5) 
+  if (i==3) next #skip 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(distances_list), ncol = length(distances_list),
+                          dimnames = list(names(distances_list), names(distances_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(distances_list)) {
+  for (j in seq_along(distances_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare distances between window `i` and window `j`
+    ks_result <- ks.test(
+      distances_list[[i]], 
+      distances_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+KS for angle from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store angles for each window
+angles_list <- list()
+
+# Loop through each set of filtered points to calculate angles
+for (i in 1:5) {
+  if (i==3) next #skip 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_3d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_3d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  
+  # Compute angles of points from the centre
+  angles <- angle(X_coords, Y_coords)
+  
+  # Save angles for the current window
+  angles_list[[paste0("Window_", i)]] <- angles
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(angles_list), ncol = length(angles_list),
+                          dimnames = list(names(angles_list), names(angles_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(angles_list)) {
+  for (j in seq_along(angles_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare angles between window `i` and window `j`
+    ks_result <- ks.test(
+      angles_list[[i]], 
+      angles_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*7d*
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+# Load the 7D dataset
+Point7d <- read_excel("7d_pONT_Points.xlsx")
+Point_df_7d <- as.data.frame(Point7d)
+
+# Initialize an empty list to store the window objects
+window7d_list <- list()
+
+# Loop through each file, read the data, and create owin objects
+for (i in 1:7) {
+  # Construct the file name
+  file_name <- paste0("7d_pONT_x", i, ".txt")
+  
+  # Read the data and create an owin object
+  window_data <- read.table(file_name, sep = "\t")
+  window7d_list[[i]] <- owin(poly = as.matrix(window_data))
+}
+
+# Define circle parameters
+circle_radius <- 600  # Radius for the circular filter
+
+# Function to filter points within a circle
+filter_points_in_circle <- function(points_df, center, radius, x_col, y_col) {
+  points_df %>%
+    filter((!!sym(x_col) - center[1])^2 + (!!sym(y_col) - center[2])^2 <= radius^2)
+}
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list <- list()
+
+# Loop through all windows
+for (i in 1:7) {
+  
+  # Dynamically select the ONH coordinates for each window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_7d)) || !(onh_y_col %in% colnames(Point_df_7d))) {
+    next  # Skip if columns don't exist
+  }
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(x = Point_df_7d[[onh_x_col]][1] + 600, y = Point_df_7d[[onh_y_col]][1] - 400)
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Ensure the point columns exist
+  if (!(x_col %in% colnames(Point_df_7d)) || !(y_col %in% colnames(Point_df_7d))) {
+    next  # Skip if point columns don't exist
+  }
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_7d, circle_center, circle_radius, x_col, y_col)
+  
+  # Store the filtered points in the list
+  filtered_points_list[[i]] <- filtered_points
+}
+
+filtered_points_list
+```
+
+```{r}
+# Open a PNG device to save everything in one file
+png(filename = "7d_windows.png", width = 1200, height = 800, res = 150)
+
+# Set up a 2x3 grid for 6 plots
+par(mfrow = c(2, 3))  
+
+for (i in 1:7) {
+  if (i == 4) next  # Skip iteration 4
+
+  # Dynamically determine the ONH coordinates for this window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Set the circle center dynamically for this window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,
+    y = Point_df_7d[[onh_y_col]][1] - 400
+  )
+
+  # Plot the window
+  plot(window7d_list[[i]], main = paste("Window", i))
+
+  # Overlay the circle on the window
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+}
+
+# Close the PNG device
+dev.off()
+
+
+```
+```{r}
+library(ggplot2)
+library(ggforce)
+
+for (i in 1:7) {
+  if (i == 4) next  # Skip iteration 4
+  
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  if (is.null(filtered_points) || nrow(filtered_points) == 0) next
+
+  # Calculate the area for each point
+  area <- 5 * i - 4
+
+  # Calculate the radius based on the area (A = πr²)
+  radius <- sqrt(filtered_points[[area]] / pi)
+
+  # X and Y coordinates
+  X_index <- i * 5 - 3
+  Y_index <- i * 5 - 2
+
+  df_points <- data.frame(
+    x = filtered_points[[X_index]],
+    y = filtered_points[[Y_index]],
+    radius = radius
+  )
+
+  # Create plot
+  plot <- ggplot(df_points, aes(x = x, y = y)) +
+    geom_point(aes(size = radius), shape = 21, color = "red", fill = "transparent") +
+    coord_fixed(ratio = 1) +  # Keep circle aspect ratio fixed
+    xlim(circle_center[1] - circle_radius, circle_center[1] + circle_radius) +
+    ylim(circle_center[2] - circle_radius, circle_center[2] + circle_radius) +
+    geom_circle(aes(x0 = circle_center[1], y0 = circle_center[2], r = circle_radius), color = "blue") +
+    theme_minimal() +
+    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank()) +
+    labs(title = paste("Window", i))
+
+  # Save plot as PNG
+  filename <- paste0("7d_window_", i, ".png")
+  ggsave(filename = filename, plot = plot, width = 6, height = 6, dpi = 300, bg = "white")
+}
+```
+```{r}
+library(spatstat)
+library(viridis)
+
+# Define prefixes and corresponding datasets
+prefixes <- paste0("Window_", 1:7)
+datasets <- filtered_points_list  # Assuming this contains the datasets
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(3, 3), mar = c(3, 2, 2, 2)) 
+
+create_plot <- function(i, dataset) {
+  # Ensure ONH coordinate columns exist
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Filter the dataset to remove invalid points
+  valid_rows <- !is.na(dataset[[i * 5 - 3]]) & !is.na(dataset[[i * 5 - 2]]) & !is.na(dataset[[5 * i - 4]])
+  
+  # Get valid X, Y coordinates and area
+  X_coords <- dataset[[i * 5 - 3]][valid_rows]
+  Y_coords <- dataset[[i * 5 - 2]][valid_rows]
+  area <- dataset[[5 * i - 4]][valid_rows]
+  
+  # Dynamically update circle center
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,
+    y = Point_df_7d[[onh_y_col]][1] - 400
+  )
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - circle_radius, circle_center[1] + circle_radius),
+    yrange = c(circle_center[2] - circle_radius, circle_center[2] + circle_radius),
+    poly = list(x = c(circle_center[1] + circle_radius * cos(seq(0, 2 * pi, length.out = 100))),
+                y = c(circle_center[2] + circle_radius * sin(seq(0, 2 * pi, length.out = 100))))
+  )
+  
+  # Create ppp object within the circular window
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Define colour palette
+  color_palette <- viridis(100)
+  
+  # Save plot as PNG
+  png(filename = paste0("7d_Window_", i, "_density.png"), width = 8, height = 6, units = "in", res = 300)
+  
+  plot(
+    density(Point_ppp, weights = marks(Point_ppp)), 
+    main = paste("Window", i),
+    col = color_palette
+  )
+  
+  # Overlay the circle
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, 
+          add = TRUE, inches = FALSE, bg = "transparent")
+  
+  dev.off()  # Close the PNG device
+}
+
+# Iterate over the prefixes and datasets
+for (i in 1:7) {
+  if (i == 4) next  # Skip iteration 4
+  create_plot(i, datasets[[i]])
+}
+```
+Distance from center of circle covariate
+```{r}
+library(spatstat)
+
+# Define the distance function
+distance <- function(x, y, center) {
+  sqrt((x - center[1])^2 + (y - center[2])^2)
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:7) {
+  if (i == 4) next  # Skip 4
+  
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using distance
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'local')
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'piecewise')
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("7d_covarite_distance_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+  
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Distance_Plots_", i)]] <- paste0("rhohat_distance_plots_", i, ".png")
+}
+
+```
+Angle from center of circle covariate
+```{r}
+library(spatstat)
+
+# Corrected angle function with proper wrapping at -pi and +pi
+angle <- function(x, y, center) {
+  atan2(y - center[2], x - center[1])
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:7) {
+  if (i == 4) next  # Skip 4
+  
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using angle
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "local")
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "piecewise")
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("7d_covariate_angle_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+  
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Angle_Plots_", i)]] <- paste0("rhohat_angle_plots_", i, ".png")
+}
+
+```
+K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate K-function Envelope
+  K_function <- envelope(Point_ppp, Kest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_K_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(K_function, 
+       main = paste("K-function", i), 
+       xlab = "r", 
+       ylab = "K(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+G-function (Gest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate G-function Envelope
+  G_function <- envelope(Point_ppp, Gest, nsim = 30)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_G_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(G_function, 
+       main = paste("G-function", i), 
+       xlab = "r", 
+       ylab = "G(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+
+```
+Pair Correlation Function/g-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each PCF plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate PCF function Envelope
+  PCF_function <- envelope(Point_ppp, 
+                           fun = pcf, 
+                           nsim = 10,           # Number of simulations
+                           r = seq(0, 200, by = 1),  # Coarser distance intervals
+                           rmax = 20)               # Limit maximum distance
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_PCF_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(PCF_function, main = paste("Pair Correlation Function", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+L-function (Lest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each L-function plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L-function Envelope
+  L_function <- envelope(Point_ppp, 
+                         fun = Lest, 
+                         nsim = 10)   # Number of simulations
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_L_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_function, 
+       main = paste("L-function", i), 
+       xlab = "r", 
+       ylab = "L(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+L(r) - r 
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each L(r) - r Envelope plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L(r) - r Envelope
+  Lr_function <- envelope(Point_ppp, 
+                          Lest, 
+                          transform = expression(.-r), 
+                          nsim = 10)   # Number of simulations
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_Lr_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Lr_function, 
+       main = paste("L(r) - r Envelope", i), 
+       xlab = "r", 
+       ylab = "L(r) - r")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Kinhom Envelope plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  Kinhom_function <- envelope(Point_ppp, 
+                              Kinhom, 
+                              nsim = 10)   # Number of simulations
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_Kinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Kinhom_function, 
+       main = paste("Kinhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+Inhomogeneous L(r)-r-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 3
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  L_rinhom_function <- envelope(Point_ppp, Linhom, 
+                          transform = expression(.-r), 
+                          nsim = 10)  # Number of simulations)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_L_rinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_rinhom_function, 
+       main = paste("Inhom L(r) - r Envelope", i))
+ 
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous G-function *Envelopes not plotting to theoretical line*
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Ginhom Envelope plot as PNG
+for (i in 1:7) {
+  if (i == 4) next  # Skip window 4
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Ginhom Envelope
+  Ginhom_function <- envelope(Point_ppp, 
+                              Ginhom, 
+                              nsim = 10)   # Number of simulations
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("7d_Ginhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Ginhom_function, 
+       main = paste("Ginhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+Kolmogorov-Smirnov (KS) Test (test compares cumulative distribution functions, making it suitable for comparing distances of points from a feature of interest (e.g., a covariate) between groups.)
+KS for distance from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:7) {
+  if (i == 4) next 
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute distances of points from the centre
+  distances <- distance(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    distances, 
+    "punif", 
+    min = 0, 
+    max = circle_radius
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for angle from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:7) {
+  if (i == 4) next 
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute angles of points from the centre
+  angles <- angle(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by 2*pi)
+  ks_result <- ks.test(
+    angles, 
+    "punif", 
+    min = -pi, 
+    max = pi
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for distance from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store distances for each window
+distances_list <- list()
+
+# Loop through each set of filtered points to calculate distances
+for (i in 1:7) {
+  if (i == 4) next 
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  
+  # Compute distances of points from the centre
+  distances <- distance(X_coords, Y_coords)
+  
+  # Save distances for the current window
+  distances_list[[paste0("Window_", i)]] <- distances
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(distances_list), ncol = length(distances_list),
+                          dimnames = list(names(distances_list), names(distances_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(distances_list)) {
+  for (j in seq_along(distances_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare distances between window `i` and window `j`
+    ks_result <- ks.test(
+      distances_list[[i]], 
+      distances_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+KS for angle from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store angles for each window
+angles_list <- list()
+
+# Loop through each set of filtered points to calculate angles
+for (i in 1:7) {
+  if (i == 4) next 
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_7d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_7d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  
+  # Compute angles of points from the centre
+  angles <- angle(X_coords, Y_coords)
+  
+  # Save angles for the current window
+  angles_list[[paste0("Window_", i)]] <- angles
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(angles_list), ncol = length(angles_list),
+                          dimnames = list(names(angles_list), names(angles_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(angles_list)) {
+  for (j in seq_along(angles_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare angles between window `i` and window `j`
+    ks_result <- ks.test(
+      angles_list[[i]], 
+      angles_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*21d*
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+# Load the 21D dataset
+Point21d <- read_excel("21d_pONT_Points.xlsx")
+Point_df_21d <- as.data.frame(Point21d)
+
+# Initialize an empty list to store the window objects
+window21d_list <- list()
+
+# Loop through each file, read the data, and create owin objects
+for (i in 1:9) {
+  
+  # Construct the file name
+  file_name <- paste0("21d_pONT_x", i, ".txt")
+  
+  # Read the data and create an owin object
+  window_data <- read.table(file_name, sep = "\t")
+  window21d_list[[i]] <- owin(poly = as.matrix(window_data))
+}
+
+# Define circle parameters
+circle_radius <- 600  # Radius for the circular filter
+
+# Function to filter points within a circle
+filter_points_in_circle <- function(points_df, center, radius, x_col, y_col) {
+  points_df %>%
+    filter((!!sym(x_col) - center[1])^2 + (!!sym(y_col) - center[2])^2 <= radius^2)
+}
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list <- list()
+
+# Loop through all windows
+for (i in 1:9) {
+  
+  # Dynamically select the ONH coordinates for each window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_21d)) || !(onh_y_col %in% colnames(Point_df_21d))) {
+    next  # Skip if columns don't exist
+  }
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(x = Point_df_21d[[onh_x_col]][1] + 600, y = Point_df_21d[[onh_y_col]][1] - 400)
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Ensure the point columns exist
+  if (!(x_col %in% colnames(Point_df_21d)) || !(y_col %in% colnames(Point_df_21d))) {
+    next  # Skip if point columns don't exist
+  }
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_21d, circle_center, circle_radius, x_col, y_col)
+  
+  # Store the filtered points in the list
+  filtered_points_list[[i]] <- filtered_points
+}
+
+filtered_points_list
+
+```
+
+```{r}
+# Load necessary libraries
+library(spatstat)
+
+# Open PNG device to save the plot
+png(filename = "21d_windows.png", width = 1500, height = 1500, res = 150)
+
+# Set up a 3x3 grid for 9 plots
+par(mfrow = c(3, 3), mar = c(1, 1, 1, 1))  # Adjust margins if needed
+
+for (i in 1:9) {
+  # Dynamically determine the ONH coordinates for this window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Set the circle center dynamically for this window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,
+    y = Point_df_21d[[onh_y_col]][1] - 400
+  )
+
+  # Plot the window
+  plot(window21d_list[[i]], main = paste("Window", i))
+
+  # Overlay the circle on the window
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, 
+          inches = FALSE, fg = "blue", bg = "transparent")
+}
+
+# Close the PNG device to save the file
+dev.off()
+```
+```{r}
+library(ggplot2)
+library(ggforce)
+
+for (i in 1:9) {
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  if (is.null(filtered_points) || nrow(filtered_points) == 0) next
+
+  # Calculate the area for each point
+  area <- 5 * i - 4
+
+  # Calculate the radius based on the area (A = πr²)
+  radius <- sqrt(filtered_points[[area]] / pi)
+
+  # X and Y coordinates
+  X_index <- i * 5 - 3
+  Y_index <- i * 5 - 2
+
+  df_points <- data.frame(
+    x = filtered_points[[X_index]],
+    y = filtered_points[[Y_index]],
+    radius = radius
+  )
+
+  # Create plot
+  plot <- ggplot(df_points, aes(x = x, y = y)) +
+    geom_point(aes(size = radius), shape = 21, color = "red", fill = "transparent") +
+    coord_fixed(ratio = 1) +  # Keep circle aspect ratio fixed
+    xlim(circle_center[1] - circle_radius, circle_center[1] + circle_radius) +
+    ylim(circle_center[2] - circle_radius, circle_center[2] + circle_radius) +
+    geom_circle(aes(x0 = circle_center[1], y0 = circle_center[2], r = circle_radius), color = "blue") +
+    theme_minimal() +
+    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank()) +
+    labs(title = paste("Window", i))
+
+  # Save the plot as a PNG file
+  ggsave(filename = paste0("plot_window_", i, ".png"), plot = plot, width = 6, height = 6, dpi = 300, bg = "white")
+}
+```
+```{r}
+library(spatstat)
+library(viridis)
+
+# Define prefixes and corresponding datasets
+prefixes <- paste0("Window_", 1:9)
+datasets <- filtered_points_list  # Assuming this contains the datasets
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(3, 3), mar = c(3, 2, 2, 2)) 
+
+create_plot <- function(i, dataset) {
+  # Ensure ONH coordinate columns exist
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Filter the dataset to remove invalid points
+  valid_rows <- !is.na(dataset[[i * 5 - 3]]) & !is.na(dataset[[i * 5 - 2]]) & !is.na(dataset[[5 * i - 4]])
+  
+  # Get valid X, Y coordinates and area
+  X_coords <- dataset[[i * 5 - 3]][valid_rows]
+  Y_coords <- dataset[[i * 5 - 2]][valid_rows]
+  area <- dataset[[5 * i - 4]][valid_rows]
+  
+  # Dynamically update circle center
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,
+    y = Point_df_21d[[onh_y_col]][1] - 400
+  )
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - circle_radius, circle_center[1] + circle_radius),
+    yrange = c(circle_center[2] - circle_radius, circle_center[2] + circle_radius),
+    poly = list(x = c(circle_center[1] + circle_radius * cos(seq(0, 2 * pi, length.out = 100))),
+                y = c(circle_center[2] + circle_radius * sin(seq(0, 2 * pi, length.out = 100))))
+  )
+  
+  # Create ppp object within the circular window
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Define colour palette
+  color_palette <- viridis(100)
+  
+  # Save plot as PNG
+  png(filename = paste0("21d_Window_", i, "_density.png"), width = 8, height = 6, units = "in", res = 300)
+  
+  plot(
+    density(Point_ppp, weights = marks(Point_ppp)), 
+    main = paste("Window", i),
+    col = color_palette
+  )
+  
+  # Overlay the circle
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, 
+          add = TRUE, inches = FALSE, bg = "transparent")
+  
+  dev.off()  # Close the PNG device
+}
+
+# Iterate over the prefixes and datasets
+for (i in 1:9) {
+  create_plot(i, datasets[[i]])
+}
+```
+Distance from center of circle covariate
+```{r}
+library(spatstat)
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y, center) {
+  sqrt((x - center[1])^2 + (y - center[2])^2)
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using distance_to_ONH
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "local")
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "piecewise")
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("21d_covariate_distance_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+  
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Distance_Plots_", i)]] <- paste0("rhohat_distance_plots_", i, ".png")
+}
+
+```
+Angle from center of circle covariate
+```{r}
+library(spatstat)
+
+# Function to define the angle-to-Center covariate with proper wrapping
+angle <- function(x, y, center) {
+  atan2(y - center[2], x - center[1])
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using angle_to_ONH
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "local")
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "piecewise")
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("21d_covariate_angle_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+  
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Angle from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Angle_Plots_", i)]] <- paste0("rhohat_angle_plots_", i, ".png")
+}
+
+```
+K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each K-function plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate K-function Envelope
+  K_function <- envelope(Point_ppp, 
+                         Kest, 
+                         nsim = 10)   # Number of simulations
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_K_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(K_function, 
+       main = paste("K-function", i), 
+       xlab = "r", 
+       ylab = "K(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+G-function (Gest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each G-function plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate G-function Envelope
+  G_function <- envelope(Point_ppp, 
+                         Gest, 
+                         nsim = 30)   # Number of simulations
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_G_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(G_function, 
+       main = paste("G-function", i), 
+       xlab = "r", 
+       ylab = "G(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+
+```
+Pair Correlation Function/g-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each PCF plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate PCF Envelope
+  PCF_function <- envelope(Point_ppp, 
+                           fun = pcf, 
+                           nsim = 10,           # Number of simulations
+                           r = seq(0, 200, by = 1),  # Coarser distance intervals
+                           rmax = 20)            # Limit maximum distance
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_PCF_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(PCF_function, main = paste("Pair Correlation Function", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+L-function (Lest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each L-function plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L-function Envelope
+  L_function <- envelope(Point_ppp, Lest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_L_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_function, main = paste("L-function", i), xlab = "r", ylab = "L(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+L(r) - r 
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Lr-function plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Lr-function Envelope
+  Lr_function <- envelope(Point_ppp, Lest, transform = expression(.-r), nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_Lr_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Lr_function, main = paste("L(r) - r Envelope", i), xlab = "r", ylab = "L(r) - r")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+Inhomogeneous K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Kinhom plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  Kinhom_function <- envelope(Point_ppp, Kinhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_Kinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Kinhom_function, main = paste("Kinhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+Inhomogeneous L(r)-r-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:9) {
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  L_rinhom_function <- envelope(Point_ppp, Linhom, 
+                          transform = expression(.-r), 
+                          nsim = 10)  # Number of simulations)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_L_rinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_rinhom_function, 
+       main = paste("Inhom L(r) - r Envelope", i))
+ 
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous G-function *Envelopes not plotting to theoretical line*
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Ginhom plot as PNG
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Ginhom Envelope
+  Ginhom_function <- envelope(Point_ppp, Ginhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("21d_Ginhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Ginhom_function, main = paste("Ginhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Kolmogorov-Smirnov (KS) Test (test compares cumulative distribution functions, making it suitable for comparing distances of points from a feature of interest (e.g., a covariate) between groups.)
+KS for distance from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute distances of points from the centre
+  distances <- distance(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    distances, 
+    "punif", 
+    min = 0, 
+    max = circle_radius
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for angle from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:9) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute angles of points from the centre
+  angles <- angle(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by 2*pi)
+  ks_result <- ks.test(
+    angles, 
+    "punif", 
+    min = -pi, 
+    max = pi
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for distance from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store distances for each window
+distances_list <- list()
+
+# Loop through each set of filtered points to calculate distances
+for (i in 1:9) { 
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  # Compute distances of points from the centre
+  distances <- distance(X_coords, Y_coords)
+  
+  # Save distances for the current window
+  distances_list[[paste0("Window_", i)]] <- distances
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(distances_list), ncol = length(distances_list),
+                          dimnames = list(names(distances_list), names(distances_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(distances_list)) {
+  for (j in seq_along(distances_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare distances between window `i` and window `j`
+    ks_result <- ks.test(
+      distances_list[[i]], 
+      distances_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+KS for angle from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store angles for each window
+angles_list <- list()
+
+# Loop through each set of filtered points to calculate angles
+for (i in 1:9) {
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_21d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_21d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  # Compute angles of points from the centre
+  angles <- angle(X_coords, Y_coords)
+  
+  # Save angles for the current window
+  angles_list[[paste0("Window_", i)]] <- angles
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(angles_list), ncol = length(angles_list),
+                          dimnames = list(names(angles_list), names(angles_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(angles_list)) {
+  for (j in seq_along(angles_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare angles between window `i` and window `j`
+    ks_result <- ks.test(
+      angles_list[[i]], 
+      angles_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*56d*
+```{r}
+library(lgcp)
+library(spatstat.geom)
+library(dplyr)
+library(readxl)
+
+# Set working directory and load data
+setwd("C:/Users/ajmoo/OneDrive - Queen's University Belfast/SOR4001 Project/R/DATA")
+
+# Load the 56D dataset
+Point56d <- read_excel("56d_pONT_Points.xlsx")
+Point_df_56d <- as.data.frame(Point56d)
+
+# Initialize an empty list to store the window objects
+window56d_list <- list()
+
+# Loop through each file, read the data, and create owin objects
+for (i in 1:5) {
+  
+  # Construct the file name
+
+  file_name <- paste0("56d_pONT_x", i, ".txt")
+  
+  # Read the data and create an owin object
+  window_data <- read.table(file_name, sep = "\t")
+  window56d_list[[i]] <- owin(poly = as.matrix(window_data))
+}
+
+# Define circle parameters
+circle_radius <- 600  # Radius for the circular filter
+
+# Function to filter points within a circle
+filter_points_in_circle <- function(points_df, center, radius, x_col, y_col) {
+  points_df %>%
+    filter((!!sym(x_col) - center[1])^2 + (!!sym(y_col) - center[2])^2 <= radius^2)
+}
+
+# Initialize an empty list to store filtered points for each window
+filtered_points_list <- list()
+
+# Loop through all windows (excluding window 4)
+for (i in 1:5) {
+  
+  # Dynamically select the ONH coordinates for each window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Ensure the columns exist before proceeding
+  if (!(onh_x_col %in% colnames(Point_df_56d)) || !(onh_y_col %in% colnames(Point_df_56d))) {
+    next  # Skip if columns don't exist
+  }
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(x = Point_df_56d[[onh_x_col]][1] + 600, y = Point_df_56d[[onh_y_col]][1] - 400)
+  
+  # Dynamically select the X and Y columns for the current window
+  x_col <- paste0("X", i)
+  y_col <- paste0("Y", i)
+  
+  # Ensure the point columns exist
+  if (!(x_col %in% colnames(Point_df_56d)) || !(y_col %in% colnames(Point_df_56d))) {
+    next  # Skip if point columns don't exist
+  }
+  
+  # Filter points within the circular window
+  filtered_points <- filter_points_in_circle(Point_df_56d, circle_center, circle_radius, x_col, y_col)
+  
+  # Store the filtered points in the list
+  filtered_points_list[[i]] <- filtered_points
+}
+
+filtered_points_list
+
+```
+
+```{r}
+# Load necessary libraries
+library(spatstat)
+
+# Open PNG device to save the plots to one file
+png("combined_plots.png", width = 800, height = 800, res = 150)
+
+# Set up a grid of 3 rows and 2 columns for 5 plots
+par(mfrow = c(3, 2), mar = c(1, 1, 1, 1))  # Adjust margins if needed
+
+# Loop to create and overlay plots
+for (i in 1:5) {
+  # Dynamically determine the ONH coordinates for this window
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Set the circle center dynamically for this window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,
+    y = Point_df_56d[[onh_y_col]][1] - 400
+  )
+
+  # Plot the window
+  plot(window56d_list[[i]], main = paste(i))
+
+  # Overlay the circle on the window
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, add = TRUE, inches = FALSE, fg = "blue", bg = "transparent")
+}
+
+# Close the PNG device to save the file
+dev.off()
+
+```
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(ggforce)
+
+# Loop to create and save individual PNG plots
+for (i in 1:5) {
+  # Define the ONH X and Y columns dynamically
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  if (is.null(filtered_points) || nrow(filtered_points) == 0) next
+
+  # Calculate the area for each point
+  area <- 5 * i - 4
+
+  # Calculate the radius based on the area (A = πr²)
+  radius <- sqrt(filtered_points[[area]] / pi)
+
+  # X and Y coordinates
+  X_index <- i * 5 - 3
+  Y_index <- i * 5 - 2
+
+  df_points <- data.frame(
+    x = filtered_points[[X_index]],
+    y = filtered_points[[Y_index]],
+    radius = radius
+  )
+
+  # Set the output filename
+  filename <- paste0("56d_plot_window_", i, ".png")
+
+  # Create the plot
+  plot <- ggplot(df_points, aes(x = x, y = y)) +
+    geom_point(aes(size = radius), shape = 21, color = "red", fill = "transparent") +
+    coord_fixed(ratio = 1) +  # Keep circle aspect ratio fixed
+    xlim(circle_center[1] - circle_radius, circle_center[1] + circle_radius) +
+    ylim(circle_center[2] - circle_radius, circle_center[2] + circle_radius) +
+    geom_circle(aes(x0 = circle_center[1], y0 = circle_center[2], r = circle_radius), color = "blue") +
+    theme_minimal() +
+    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank()) +
+    labs(title = paste("Window", i))
+
+  # Save the plot using ggsave
+  ggsave(filename, plot = plot, width = 8, height = 8, dpi = 300, bg = "white")
+}
+```
+```{r}
+library(spatstat)
+library(viridis)
+
+# Define prefixes and corresponding datasets
+prefixes <- paste0("Window_", 1:5)
+datasets <- filtered_points_list  # Assuming this contains the datasets
+
+# Adjust plotting area for multiple plots
+par(mfrow = c(3, 3), mar = c(3, 2, 2, 2)) 
+
+create_plot <- function(i, dataset) {
+  # Ensure ONH coordinate columns exist
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Filter the dataset to remove invalid points
+  valid_rows <- !is.na(dataset[[i * 5 - 3]]) & !is.na(dataset[[i * 5 - 2]]) & !is.na(dataset[[5 * i - 4]])
+  
+  # Get valid X, Y coordinates and area
+  X_coords <- dataset[[i * 5 - 3]][valid_rows]
+  Y_coords <- dataset[[i * 5 - 2]][valid_rows]
+  area <- dataset[[5 * i - 4]][valid_rows]
+  
+  # Dynamically update circle center
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,
+    y = Point_df_56d[[onh_y_col]][1] - 400
+  )
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - circle_radius, circle_center[1] + circle_radius),
+    yrange = c(circle_center[2] - circle_radius, circle_center[2] + circle_radius),
+    poly = list(x = c(circle_center[1] + circle_radius * cos(seq(0, 2 * pi, length.out = 100))),
+                y = c(circle_center[2] + circle_radius * sin(seq(0, 2 * pi, length.out = 100))))
+  )
+  
+  # Create ppp object within the circular window
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Define colour palette
+  color_palette <- viridis(100)
+  
+  # Save plot as PNG
+  png(filename = paste0("56d_Window_", i, "_density.png"), width = 8, height = 6, units = "in", res = 300)
+  
+  plot(
+    density(Point_ppp, weights = marks(Point_ppp)), 
+    main = paste("Window", i),
+    col = color_palette
+  )
+  
+  # Overlay the circle
+  symbols(circle_center[1], circle_center[2], circles = circle_radius, 
+          add = TRUE, inches = FALSE, bg = "transparent")
+  
+  dev.off()  # Close the PNG device
+}
+
+# Iterate over the prefixes and datasets
+for (i in 1:5) {
+  create_plot(i, datasets[[i]])
+}
+```
+Distance from center of circle covariate
+```{r}
+library(spatstat)
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y, center) {
+  sqrt((x - center[1])^2 + (y - center[2])^2)
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using distance
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'local')
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) distance(x, y, circle_center), smoother = 'piecewise')
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("21d_covariate_distance_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+  
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Distance from Center (Pixels)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Distance_Plots_", i)]] <- paste0("rhohat_distance_plots_", i, ".png")
+}
+
+```
+Angle from center of circle covariate
+```{r}
+library(spatstat)
+
+# Corrected angle function with proper wrapping at -pi and +pi
+angle <- function(x, y, center) {
+  atan2(y - center[2], x - center[1])
+}
+
+# Loop through each set of filtered points
+rhohat_results <- list()
+
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Define circular window
+  circular_window <- owin(
+    xrange = c(circle_center[1] - 600, circle_center[1] + 600),
+    yrange = c(circle_center[2] - 600, circle_center[2] + 600)
+  )
+  
+  # Create ppp object with the dynamically defined circle center
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Estimate inhomogeneous intensity using angle from center
+  rho_result_kernel <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "kernel")
+  rho_result_local <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "local")
+  rho_result_piecewise <- rhohat(Point_ppp, covariate = function(x, y) angle(x, y, circle_center), smoother = "piecewise")
+  
+  # Open PNG device to save the plot
+  png(filename = paste0("56d_covariate_angle_plots_", i, ".png"), width = 1200, height = 400)
+  
+  # Set up the plot layout for 3 side-by-side plots
+  par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Adjust margins as needed
+  
+  # Plot the results
+  plot(rho_result_kernel, 
+       main = paste("Kernel smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  plot(rho_result_local, 
+       main = paste("Local smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+
+  plot(rho_result_piecewise, 
+       main = paste("Piecewise smoother", i), 
+       xlab = "Angle from Center (Radians)", 
+       ylab = "Intensity (points/Pixels²)")
+  
+  # Close the PNG device
+  dev.off()
+  
+  # Store the file paths for reference (optional)
+  rhohat_results[[paste0("Angle_Plots_", i)]] <- paste0("rhohat_angle_plots_", i, ".png")
+}
+
+```
+K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each K-function plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate K-function Envelope
+  K_function <- envelope(Point_ppp, Kest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_K_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(K_function, main = paste("K-function", i), xlab = "r", ylab = "K(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+G-function (Gest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each G-function plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate G-function Envelope
+  G_function <- envelope(Point_ppp, Gest, nsim = 30)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_G_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(G_function, main = paste("G-function", i), xlab = "r", ylab = "G(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Pair Correlation Function/g-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each PCF plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate PCF Envelope
+  PCF_function <- envelope(Point_ppp, 
+                           fun = pcf, 
+                           nsim = 10,           # Number of simulations
+                           r = seq(0, 200, by = 1),  # Coarser distance intervals
+                           rmax = 20)            # Limit maximum distance
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_PCF_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(PCF_function, main = paste("Pair Correlation Function", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+L-function (Lest)
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each L-function plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L-function Envelope
+  L_function <- envelope(Point_ppp, Lest, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_L_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_function, main = paste("L-function", i), xlab = "r", ylab = "L(r)")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+L(r) - r 
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each L(r) - r envelope plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate L(r) - r envelope
+  Lr_function <- envelope(Point_ppp, Lest, transform = expression(.-r), nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_Lr_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Lr_function, main = paste("L(r) - r Envelope", i), xlab = "r", ylab = "L(r) - r")
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+
+```
+Inhomogeneous K-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Kinhom envelope plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom envelope
+  Kinhom_function <- envelope(Point_ppp, Kinhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_Kinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Kinhom_function, main = paste("Kinhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous L(r)-r-function
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each plot as PNG
+for (i in 1:5) {
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Kinhom Envelope
+  L_rinhom_function <- envelope(Point_ppp, Linhom, 
+                          transform = expression(.-r), 
+                          nsim = 10)  # Number of simulations)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_L_rinhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(L_rinhom_function, 
+       main = paste("Inhom L(r) - r Envelope", i))
+ 
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Inhomogeneous G-function *Envelopes not plotting to theoretical line*
+```{r}
+library(spatstat)
+
+# Loop through each set of filtered points and save each Ginhom envelope plot as PNG
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  # Calculate Ginhom envelope
+  Ginhom_function <- envelope(Point_ppp, Ginhom, nsim = 10)
+
+  # Save each plot as a separate PNG file
+  png_filename <- paste0("56d_Ginhom_function_", i, ".png")
+  png(png_filename, width = 800, height = 600)  # Set desired dimensions for the PNG
+  
+  # Plot and save to the PNG file
+  plot(Ginhom_function, main = paste("Ginhom Envelope", i))
+  
+  # Close the PNG device to save the file
+  dev.off()
+}
+```
+Kolmogorov-Smirnov (KS) Test (test compares cumulative distribution functions, making it suitable for comparing distances of points from a feature of interest (e.g., a covariate) between groups.)
+KS for distance from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute distances of points from the centre
+  distances <- distance(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by the radius)
+  ks_result <- ks.test(
+    distances, 
+    "punif", 
+    min = 0, 
+    max = circle_radius
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for angle from center
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder for KS test results
+ks_test_results <- list()
+
+# Loop through each set of filtered points
+for (i in 1:5) {
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+  
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  area_index <- 5 * i - 4 # Index for Area1, Area2, ..., Area16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  area <- filtered_points[[area_index]]
+  
+  # Create ppp object
+  Point_ppp <- ppp(
+    x = X_coords,
+    y = Y_coords,
+    window = circular_window,
+    marks = area
+  )
+  
+  
+  # Compute angles of points from the centre
+  angles <- angle(Point_ppp$x, Point_ppp$y)
+  
+  # Apply KS test against a uniform distribution (scaled by 2*pi)
+  ks_result <- ks.test(
+    angles, 
+    "punif", 
+    min = -pi, 
+    max = pi
+  )
+  
+  # Save the KS test result for the current dataset
+  ks_test_results[[paste0("Window_", i)]] <- ks_result
+}
+
+ks_test_results
+```
+KS for distance from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the distance-to-Center covariate
+distance <- function(x, y) {sqrt((x - circle_center[1])^2 + (y - circle_center[2])^2)}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store distances for each window
+distances_list <- list()
+
+# Loop through each set of filtered points to calculate distances
+for (i in 1:5) {  
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  # Compute distances of points from the centre
+  distances <- distance(X_coords, Y_coords)
+  
+  # Save distances for the current window
+  distances_list[[paste0("Window_", i)]] <- distances
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(distances_list), ncol = length(distances_list),
+                          dimnames = list(names(distances_list), names(distances_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(distances_list)) {
+  for (j in seq_along(distances_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare distances between window `i` and window `j`
+    ks_result <- ks.test(
+      distances_list[[i]], 
+      distances_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
+KS for angle from center between specimens
+```{r}
+library(spatstat)
+
+# Assuming `circle_center` and `circle_radius` are already defined
+par(mfrow = c(1, 3), mar = c(3, 2, 2, 2))  # Increase right margin
+
+# Function to define the angle-to-Center covariate
+angle <- function(x, y) {
+  atan2(y - circle_center[2], x - circle_center[1])
+}
+
+circular_window <- disc(radius = circle_radius, centre = circle_center)
+
+# Placeholder to store angles for each window
+angles_list <- list()
+
+# Loop through each set of filtered points to calculate angles
+for (i in 1:5) {
+   
+  # Dynamically define the ONH X and Y columns
+  onh_x_col <- paste0("ONH X", i)
+  onh_y_col <- paste0("ONH Y", i)
+
+  # Dynamically set circle center for the current window
+  circle_center <- c(
+    x = Point_df_56d[[onh_x_col]][1] + 600,  # Change ONH X based on i
+    y = Point_df_56d[[onh_y_col]][1] - 400   # Change ONH Y based on i
+  )
+  
+  # Define circular window
+  circular_window <- disc(radius = circle_radius, centre = circle_center)
+  
+  # Get the filtered points for the current dataset
+  filtered_points <- filtered_points_list[[i]]
+  
+  # Define the X and Y indices
+  X_index <- i * 5 - 3  # Index for X1, X2, ..., X16
+  Y_index <- i * 5 - 2  # Index for Y1, Y2, ..., Y16
+  
+  # Extract the X and Y coordinates from the data.frame
+  X_coords <- filtered_points[[X_index]]
+  Y_coords <- filtered_points[[Y_index]]
+  # Compute angles of points from the centre
+  angles <- angle(X_coords, Y_coords)
+  
+  # Save angles for the current window
+  angles_list[[paste0("Window_", i)]] <- angles
+}
+
+# Placeholder to store KS test results for all combinations
+ks_test_results <- matrix(nrow = length(angles_list), ncol = length(angles_list),
+                          dimnames = list(names(angles_list), names(angles_list)))
+
+# Perform KS test for each pair of windows
+for (i in seq_along(angles_list)) {
+  for (j in seq_along(angles_list)) {
+    if (i <= j) next  # Avoid redundant comparisons and self-comparisons
+    # Compare angles between window `i` and window `j`
+    ks_result <- ks.test(
+      angles_list[[i]], 
+      angles_list[[j]]
+    )
+    # Store the KS statistic in the matrix
+    ks_test_results[i, j] <- ks_result$statistic
+  }
+}
+
+# Print the KS test results matrix
+print(ks_test_results)
+```
